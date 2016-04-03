@@ -1,0 +1,67 @@
+#!/bin/bash
+
+function h() {
+    echo "usage: prunepath DIR SIZELIMIT"
+    echo "Delete files until the size of DIR goes under SIZELIMIT, oldest modified files first."
+    echo
+    echo "    DIR - path to the directory to be pruned."
+    echo "    SIZELIMIT - Threshold of size of the DIR. It must match [0-9]+[KMGT]?. Considering 1K = 1024 bytes."
+    exit 1
+}
+
+if [ $# -eq 2 ]
+then
+    DIR=$1
+    SIZELIMIT=$2
+
+    # Check the DIR
+    if [ ! -d $DIR ]
+    then
+        echo "$DIR doesn't exists or is not a directory"
+        echo
+        h
+    fi
+
+    # Check SIZELIMIT format
+    if ! [[ $SIZELIMIT =~ ^[0-9]+[KMGT]?$ ]]
+    then
+        echo "$SIZELIMIT doesn't have the right format"
+        echo
+        h
+    fi
+
+    # Convert SIZELIMIT to bytes
+    BYTES=$SIZELIMIT
+
+    if [[ $BYTES =~ ^[0-9]+T ]]
+    then
+        BYTES="$(expr $(echo $BYTES | sed 's/T//g') \* 1024)G"
+    fi
+
+    if [[ $BYTES =~ ^[0-9]+G ]]
+    then
+        BYTES="$(expr $(echo $BYTES | sed 's/G//g') \* 1024)M"
+    fi
+
+    if [[ $BYTES =~ ^[0-9]+M ]]
+    then
+        BYTES="$(expr $(echo $BYTES | sed 's/M//g') \* 1024)K"
+    fi
+
+    if [[ $BYTES =~ ^[0-9]+K ]]
+    then
+        BYTES="$(expr $(echo $BYTES | sed 's/K//g') \* 1024)"
+    fi
+
+    echo "Going to prune dir $DIR until it gets smaller than $SIZELIMIT ($BYTES bytes)"
+
+    while [ $(du -sb $DIR | cut -f 1) -gt $BYTES ]
+    do
+        FILE=$DIR/$(ls -t $DIR | tail -n 1)
+        rm -- $FILE
+    done
+
+    echo "$DIR now have $(du -s $DIR | cut -f -1) ($(du -sb $DIR | cut -f 1) bytes)"
+else
+    h
+fi
